@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -32,13 +32,19 @@ export default function RestaurantPage() {
 
   async function fetchMenuItems() {
     try {
-      const res = await fetch("/api/restaurant");
+      const res = await fetch("/api/restaurant?type=menu", {
+        cache: "no-store",
+      });
       const data = await res.json();
-      // FIX: Pastikan data adalah array
+
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal memuat menu");
+      }
+
       setMenuItems(Array.isArray(data) ? data : []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching menu:", error);
-      toast.error("Gagal memuat menu");
+      toast.error(error.message || "Gagal memuat menu");
       setMenuItems([]);
     } finally {
       setLoading(false);
@@ -46,7 +52,6 @@ export default function RestaurantPage() {
   }
 
   function filterMenu() {
-    // FIX: Validasi array sebelum filter
     let filtered = Array.isArray(menuItems) ? [...menuItems] : [];
 
     if (category !== "all") {
