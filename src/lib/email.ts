@@ -8,12 +8,54 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "'": "&#39;",
+      '"': "&quot;",
+    };
+
+    return entities[character];
+  });
+}
+
+function resolveAppUrl(appUrl?: string): string {
+  return (
+    appUrl ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    ""
+  ).replace(/\/+$/, "");
+}
+
 export async function sendVerificationEmail(
   email: string,
   name: string,
   verificationToken: string,
+  appUrl?: string,
 ) {
-  const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${verificationToken}`;
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    return {
+      success: false,
+      error: "EMAIL_USER dan EMAIL_PASSWORD belum dikonfigurasi",
+    };
+  }
+
+  const baseUrl = resolveAppUrl(appUrl);
+  if (!baseUrl) {
+    return {
+      success: false,
+      error: "URL aplikasi belum dikonfigurasi",
+    };
+  }
+
+  const verificationLink = `${baseUrl}/verify-email?token=${encodeURIComponent(
+    verificationToken,
+  )}`;
+  const safeName = escapeHtml(name);
 
   const mailOptions = {
     from: `"Grand Hotel" <${process.env.EMAIL_USER}>`,
@@ -27,7 +69,7 @@ export async function sendVerificationEmail(
         </div>
         
         <div style="padding: 30px; background: #f9f9f9;">
-          <h2 style="color: #1e3a5f; margin-top: 0;">Halo ${name}!</h2>
+          <h2 style="color: #1e3a5f; margin-top: 0;">Halo ${safeName}!</h2>
           <p style="color: #666; line-height: 1.6;">
             Terima kasih telah mendaftar di Grand Hotel. Untuk mengaktifkan akun Anda, silakan klik tombol di bawah ini:
           </p>
@@ -39,7 +81,7 @@ export async function sendVerificationEmail(
           </div>
           
           <p style="color: #666; line-height: 1.6;">
-            Atau copy link ini ke browser Anda:
+            Atau salin link ini ke browser Anda:
           </p>
           <p style="background: #f0f0f0; padding: 10px; border-radius: 5px; word-break: break-all; font-size: 12px; color: #333;">
             ${verificationLink}
@@ -80,6 +122,10 @@ export async function sendBookingConfirmation(
   checkOut: string,
   totalPrice: number,
 ) {
+  const safeGuestName = escapeHtml(guestName);
+  const safeBookingNumber = escapeHtml(bookingNumber);
+  const safeRoomNumber = escapeHtml(roomNumber);
+
   const mailOptions = {
     from: `"Grand Hotel" <${process.env.EMAIL_USER}>`,
     to: guestEmail,
@@ -92,7 +138,7 @@ export async function sendBookingConfirmation(
         </div>
         
         <div style="padding: 30px; background: #f9f9f9;">
-          <h2 style="color: #1e3a5f; margin-top: 0;">Halo ${guestName}!</h2>
+          <h2 style="color: #1e3a5f; margin-top: 0;">Halo ${safeGuestName}!</h2>
           <p style="color: #666; line-height: 1.6;">
             Terima kasih telah memilih Grand Hotel. Booking Anda telah berhasil dibuat dengan detail berikut:
           </p>
@@ -102,11 +148,11 @@ export async function sendBookingConfirmation(
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="padding: 8px 0; color: #666;">Nomor Booking:</td>
-                <td style="padding: 8px 0; font-weight: bold; color: #1e3a5f;">${bookingNumber}</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #1e3a5f;">${safeBookingNumber}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666;">Kamar:</td>
-                <td style="padding: 8px 0; font-weight: bold;">${roomNumber}</td>
+                <td style="padding: 8px 0; font-weight: bold;">${safeRoomNumber}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666;">Check-in:</td>
