@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { generatePaymentNumber } from "@/lib/utils";
+import { databaseErrorResponse } from "@/lib/api-error";
 
 export async function GET() {
   try {
@@ -9,11 +10,8 @@ export async function GET() {
       include: { booking: { include: { guest: true } }, order: true },
     });
     return NextResponse.json(payments);
-  } catch {
-    return NextResponse.json(
-      { error: "Gagal memuat pembayaran" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return databaseErrorResponse(error, "Gagal memuat pembayaran");
   }
 }
 
@@ -31,11 +29,8 @@ export async function POST(request: Request) {
       },
     });
     return NextResponse.json(payment, { status: 201 });
-  } catch {
-    return NextResponse.json(
-      { error: "Gagal membuat pembayaran" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return databaseErrorResponse(error, "Gagal membuat pembayaran");
   }
 }
 
@@ -44,8 +39,10 @@ export async function PATCH(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const body = await request.json();
-    if (!id)
+
+    if (!id) {
       return NextResponse.json({ error: "ID diperlukan" }, { status: 400 });
+    }
 
     const payment = await prisma.payment.update({
       where: { id },
@@ -56,10 +53,7 @@ export async function PATCH(request: Request) {
       },
     });
     return NextResponse.json(payment);
-  } catch {
-    return NextResponse.json(
-      { error: "Gagal memproses pembayaran" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return databaseErrorResponse(error, "Gagal memproses pembayaran");
   }
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { databaseErrorResponse } from "@/lib/api-error";
 
 export async function GET() {
   try {
@@ -7,8 +8,8 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(guests);
-  } catch {
-    return NextResponse.json({ error: "Gagal memuat tamu" }, { status: 500 });
+  } catch (error: unknown) {
+    return databaseErrorResponse(error, "Gagal memuat tamu");
   }
 }
 
@@ -18,14 +19,13 @@ export async function POST(request: Request) {
     const guest = await prisma.guest.create({ data: body });
     return NextResponse.json(guest, { status: 201 });
   } catch (error: any) {
-    if (error.code === "P2002")
+    if (error?.code === "P2002") {
       return NextResponse.json(
         { error: "Email sudah terdaftar" },
         { status: 400 },
       );
-    return NextResponse.json(
-      { error: "Gagal menambahkan tamu" },
-      { status: 500 },
-    );
+    }
+
+    return databaseErrorResponse(error, "Gagal menambahkan tamu");
   }
 }

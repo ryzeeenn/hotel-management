@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { generateBookingNumber, calculateNights } from "@/lib/utils";
+import { databaseErrorResponse } from "@/lib/api-error";
 
 export async function GET(request: Request) {
   try {
@@ -32,12 +33,8 @@ export async function GET(request: Request) {
       },
     });
     return NextResponse.json(bookings);
-  } catch (error: any) {
-    console.error("GET bookings error:", error);
-    return NextResponse.json(
-      { error: error.message || "Gagal memuat booking" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return databaseErrorResponse(error, "Gagal memuat booking");
   }
 }
 
@@ -135,11 +132,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(booking, { status: 201 });
-  } catch (error: any) {
-    console.error("POST bookings error:", error);
-    return NextResponse.json(
-      { error: error.message || "Gagal membuat booking" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return databaseErrorResponse(error, "Gagal membuat booking");
   }
 }
