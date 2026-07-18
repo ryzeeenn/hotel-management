@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       email,
       `${firstName} ${lastName}`,
       verificationToken,
+      new URL(request.url).origin,
     );
 
     if (!emailResult.success) {
