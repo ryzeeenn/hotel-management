@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1e3a5f" />
+    <title>Grand Hotel - Offline</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        font-family: Arial, sans-serif;
+        color: #0f172a;
+        background: linear-gradient(135deg, #f8fafc, #dbeafe);
+      }
+      main {
+        width: min(100%, 420px);
+        padding: 32px;
+        text-align: center;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+      }
+      .logo {
+        width: 72px;
+        height: 72px;
+        display: grid;
+        place-items: center;
+        margin: 0 auto 20px;
+        border-radius: 18px;
+        color: #1e3a5f;
+        background: #f4c95d;
+        font-size: 32px;
+        font-weight: 800;
+      }
+      h1 { margin: 0 0 12px; font-size: 24px; }
+      p { margin: 0 0 24px; color: #475569; line-height: 1.6; }
+      button {
+        width: 100%;
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 18px;
+        color: white;
+        background: #1e3a5f;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="logo">G</div>
+      <h1>Anda sedang offline</h1>
+      <p>Koneksi internet tidak tersedia. Periksa jaringan Anda lalu coba muat ulang halaman.</p>
+      <button type="button" onclick="window.location.reload()">Coba Lagi</button>
+    </main>
+  </body>
+</html>
