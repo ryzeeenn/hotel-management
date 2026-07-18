@@ -83,6 +83,13 @@ export async function POST(request: Request) {
 
     if (!emailResult.success) {
       console.error("Failed to send verification email:", emailResult.error);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          verificationToken: null,
+          verificationTokenExpiry: null,
+        },
+      });
     }
 
     return NextResponse.json(
