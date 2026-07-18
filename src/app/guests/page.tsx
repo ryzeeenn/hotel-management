@@ -1,10 +1,8 @@
-﻿'use client';
+﻿"use client";
 
-import { useEffect, useState } from 'react';
-import { DataTable } from '@/components/DataTable';
-import { Modal } from '@/components/Modal';
-import { HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlineStar } from 'react-icons/hi2';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface Guest {
   id: string;
@@ -12,159 +10,137 @@ interface Guest {
   lastName: string;
   email: string;
   phone: string;
-  nationality: string | null;
+  idCardNumber: string;
+  nationality: string;
+  address: string;
   vipStatus: boolean;
-  createdAt: string;
 }
 
 export default function GuestsPage() {
+  const router = useRouter();
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [search, setSearch] = useState('');
-  const [formData, setFormData] = useState({
-    firstName: '', lastName: '', email: '', phone: '',
-    idCardNumber: '', nationality: '', address: '', vipStatus: false,
-  });
 
-  useEffect(() => { fetchGuests(); }, []);
+  useEffect(() => {
+    fetchGuests();
+  }, []);
 
   async function fetchGuests() {
     try {
-      const res = await fetch('/api/guests');
-      setGuests(await res.json());
-    } catch { toast.error('Gagal memuat data tamu'); }
-    finally { setLoading(false); }
+      const res = await fetch("/api/guests");
+      const data = await res.json();
+      // FIX: Pastikan data adalah array
+      setGuests(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching guests:", error);
+      toast.error("Gagal memuat data tamu");
+      setGuests([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/guests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      if (!res.ok) throw new Error();
-      toast.success('Tamu berhasil ditambahkan!');
-      setShowModal(false);
-      fetchGuests();
-      setFormData({ firstName: '', lastName: '', email: '', phone: '', idCardNumber: '', nationality: '', address: '', vipStatus: false });
-    } catch { toast.error('Gagal menambahkan tamu'); }
-  }
+  // FIX: Validasi array sebelum filter
+  const filtered = Array.isArray(guests)
+    ? guests.filter((g) => {
+        const fullName = `${g.firstName} ${g.lastName}`.toLowerCase();
+        return (
+          fullName.includes(search.toLowerCase()) ||
+          g.email.toLowerCase().includes(search.toLowerCase()) ||
+          g.phone.includes(search) ||
+          g.idCardNumber.includes(search)
+        );
+      })
+    : [];
 
-  const filtered = guests.filter((g) =>
-    `${g.firstName} ${g.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-    g.email.toLowerCase().includes(search.toLowerCase()) ||
-    g.phone.includes(search)
-  );
-
-  const columns = [
-    { key: 'name', header: 'Nama', render: (g: Guest) => (
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-hotel-100 rounded-full flex items-center justify-center">
-          <span className="text-sm font-bold text-hotel-700">{g.firstName[0]}{g.lastName[0]}</span>
-        </div>
-        <div>
-          <p className="font-semibold flex items-center gap-1">
-            {g.firstName} {g.lastName}
-            {g.vipStatus && <HiOutlineStar className="w-4 h-4 text-gold-500 fill-gold-500" />}
-          </p>
-          <p className="text-xs text-gray-500">{g.email}</p>
-        </div>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
-    )},
-    { key: 'phone', header: 'Telepon' },
-    { key: 'nationality', header: 'Kebangsaan', render: (g: Guest) => g.nationality || '-' },
-    { key: 'vipStatus', header: 'Status', render: (g: Guest) => (
-      g.vipStatus
-        ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gold-100 text-gold-800">
-            <HiOutlineStar className="w-3 h-3 fill-gold-500" /> VIP
-          </span>
-        : <span className="text-xs text-gray-500">Regular</span>
-    )},
-  ];
-
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-hotel-600" /></div>;
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tamu</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Manajemen Tamu</h1>
           <p className="text-gray-500 mt-1">Kelola data tamu hotel</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2 w-fit">
-          <HiOutlinePlus className="w-5 h-5" /> Tambah Tamu
-        </button>
       </div>
 
-      <div className="relative max-w-md">
-        <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input type="text" placeholder="Cari tamu..." value={search}
-          onChange={(e) => setSearch(e.target.value)} className="input-field pl-10" />
+      <div className="bg-white p-4 rounded-xl shadow-sm border mb-6">
+        <input
+          type="text"
+          placeholder="Cari nama, email, telepon, atau nomor KTP..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full px-4 py-2 border rounded-lg"
+        />
       </div>
 
-      <DataTable columns={columns} data={filtered} keyExtractor={(g) => g.id} emptyMessage="Belum ada tamu terdaftar" />
-
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Tambah Tamu Baru" size="lg">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="label-field">Nama Depan</label>
-              <input type="text" value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                className="input-field" required />
-            </div>
-            <div>
-              <label className="label-field">Nama Belakang</label>
-              <input type="text" value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                className="input-field" required />
-            </div>
-            <div>
-              <label className="label-field">Email</label>
-              <input type="email" value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="input-field" required />
-            </div>
-            <div>
-              <label className="label-field">Telepon</label>
-              <input type="tel" value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="input-field" required />
-            </div>
-            <div>
-              <label className="label-field">No. KTP/Paspor</label>
-              <input type="text" value={formData.idCardNumber}
-                onChange={(e) => setFormData({ ...formData, idCardNumber: e.target.value })}
-                className="input-field" />
-            </div>
-            <div>
-              <label className="label-field">Kebangsaan</label>
-              <input type="text" value={formData.nationality}
-                onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-                className="input-field" placeholder="Indonesia" />
-            </div>
+      {filtered.length === 0 ? (
+        <div className="bg-white p-12 rounded-xl text-center">
+          <p className="text-gray-500">Tidak ada data tamu</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Nama
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Telepon
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    No. KTP
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filtered.map((guest) => (
+                  <tr key={guest.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      {guest.firstName} {guest.lastName}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {guest.email}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {guest.phone}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {guest.idCardNumber}
+                    </td>
+                    <td className="px-6 py-4">
+                      {guest.vipStatus ? (
+                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                          VIP
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                          Regular
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div>
-            <label className="label-field">Alamat</label>
-            <textarea value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="input-field" rows={2} />
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={formData.vipStatus}
-              onChange={(e) => setFormData({ ...formData, vipStatus: e.target.checked })}
-              className="w-4 h-4 text-hotel-600 rounded" />
-            <span className="text-sm font-medium">Tandai sebagai VIP</span>
-          </label>
-          <div className="flex gap-3 justify-end pt-4 border-t">
-            <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Batal</button>
-            <button type="submit" className="btn-primary">Simpan</button>
-          </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }

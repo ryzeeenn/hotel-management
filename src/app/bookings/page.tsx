@@ -1,12 +1,7 @@
-﻿'use client';
+﻿"use client";
 
-import { useEffect, useState } from 'react';
-import { formatCurrency, formatDate } from '@/lib/utils';
-import { DataTable } from '@/components/DataTable';
-import { Badge } from '@/components/Badge';
-import { Modal } from '@/components/Modal';
-import { HiOutlinePlus, HiOutlineMagnifyingGlass } from 'react-icons/hi2';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface Booking {
   id: string;
@@ -17,221 +12,160 @@ interface Booking {
   children: number;
   totalPrice: number;
   status: string;
-  specialRequest: string | null;
-  guest: { firstName: string; lastName: string; email: string; phone: string };
-  room: { roomNumber: string; roomType: { name: string } };
+  guest?: {
+    firstName: string;
+    lastName: string;
+  };
+  room?: {
+    roomNumber: string;
+  };
 }
 
 export default function BookingsPage() {
+  const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [search, setSearch] = useState('');
-  const [formData, setFormData] = useState({
-    guestId: '',
-    roomId: '',
-    checkIn: '',
-    checkOut: '',
-    adults: 1,
-    children: 0,
-    specialRequest: '',
-  });
-  const [guests, setGuests] = useState<{ id: string; name: string }[]>([]);
-  const [rooms, setRooms] = useState<{ id: string; roomNumber: string; typeName: string; price: number }[]>([]);
 
   useEffect(() => {
     fetchBookings();
-    fetchGuests();
-    fetchRooms();
   }, []);
 
   async function fetchBookings() {
     try {
-      const res = await fetch('/api/bookings');
+      const res = await fetch("/api/bookings");
       const data = await res.json();
-      setBookings(data);
-    } catch {
-      toast.error('Gagal memuat data booking');
+      // FIX: Pastikan data adalah array
+      setBookings(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function fetchGuests() {
-    try {
-      const res = await fetch('/api/guests');
-      const data = await res.json();
-      setGuests(data.map((g: any) => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
-    } catch {}
+  // FIX: Validasi array sebelum filter
+  const filtered = Array.isArray(bookings)
+    ? bookings.filter((b) => {
+        const guestName =
+          `${b.guest?.firstName || ""} ${b.guest?.lastName || ""}`.toLowerCase();
+        return (
+          b.bookingNumber?.toLowerCase().includes(search.toLowerCase()) ||
+          guestName.includes(search.toLowerCase()) ||
+          b.room?.roomNumber?.toLowerCase().includes(search.toLowerCase())
+        );
+      })
+    : [];
+
+  function getStatusColor(status: string) {
+    const colors: { [key: string]: string } = {
+      PENDING: "bg-yellow-100 text-yellow-800",
+      CONFIRMED: "bg-blue-100 text-blue-800",
+      CHECKED_IN: "bg-green-100 text-green-800",
+      CHECKED_OUT: "bg-gray-100 text-gray-800",
+      CANCELLED: "bg-red-100 text-red-800",
+    };
+    return colors[status] || "bg-gray-100 text-gray-800";
   }
-
-  async function fetchRooms() {
-    try {
-      const res = await fetch('/api/rooms');
-      const data = await res.json();
-      setRooms(data.filter((r: any) => r.status === 'AVAILABLE').map((r: any) => ({
-        id: r.id,
-        roomNumber: r.roomNumber,
-        typeName: r.roomType.name,
-        price: r.pricePerNight,
-      })));
-    } catch {}
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      if (!res.ok) throw new Error();
-      toast.success('Booking berhasil dibuat!');
-      setShowModal(false);
-      fetchBookings();
-      setFormData({ guestId: '', roomId: '', checkIn: '', checkOut: '', adults: 1, children: 0, specialRequest: '' });
-    } catch {
-      toast.error('Gagal membuat booking');
-    }
-  }
-
-  const filtered = bookings.filter((b) =>
-    b.bookingNumber.toLowerCase().includes(search.toLowerCase()) ||
-    `${b.guest.firstName} ${b.guest.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-    b.room.roomNumber.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const columns = [
-    { key: 'bookingNumber', header: 'No. Booking', render: (b: Booking) => (
-      <span className="font-mono font-semibold text-hotel-700">{b.bookingNumber}</span>
-    )},
-    { key: 'guest', header: 'Tamu', render: (b: Booking) => (
-      <div>
-        <p className="font-medium">{b.guest.firstName} {b.guest.lastName}</p>
-        <p className="text-xs text-gray-500">{b.guest.phone}</p>
-      </div>
-    )},
-    { key: 'room', header: 'Kamar', render: (b: Booking) => (
-      <div>
-        <p className="font-medium">Kamar {b.room.roomNumber}</p>
-        <p className="text-xs text-gray-500">{b.room.roomType.name}</p>
-      </div>
-    )},
-    { key: 'dates', header: 'Tanggal', render: (b: Booking) => (
-      <div>
-        <p className="text-sm">{formatDate(b.checkIn)}</p>
-        <p className="text-xs text-gray-500">s/d {formatDate(b.checkOut)}</p>
-      </div>
-    )},
-    { key: 'totalPrice', header: 'Total', render: (b: Booking) => (
-      <span className="font-bold">{formatCurrency(b.totalPrice)}</span>
-    )},
-    { key: 'status', header: 'Status', render: (b: Booking) => <Badge status={b.status} /> },
-  ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-hotel-600" />
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Booking</h1>
-          <p className="text-gray-500 mt-1">Kelola semua pemesanan kamar hotel</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Manajemen Booking
+          </h1>
+          <p className="text-gray-500 mt-1">Kelola semua pemesanan kamar</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2 w-fit">
-          <HiOutlinePlus className="w-5 h-5" />
-          Booking Baru
-        </button>
       </div>
 
-      <div className="relative max-w-md">
-        <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <div className="bg-white p-4 rounded-xl shadow-sm border mb-6">
         <input
           type="text"
-          placeholder="Cari booking, tamu, atau kamar..."
+          placeholder="Cari nomor booking, nama tamu, atau nomor kamar..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="input-field pl-10"
+          className="w-full px-4 py-2 border rounded-lg"
         />
       </div>
 
-      <DataTable columns={columns} data={filtered} keyExtractor={(b) => b.id} emptyMessage="Belum ada booking" />
-
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Booking Baru" size="lg">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="label-field">Tamu</label>
-              <select
-                value={formData.guestId}
-                onChange={(e) => setFormData({ ...formData, guestId: e.target.value })}
-                className="input-field"
-                required
-              >
-                <option value="">Pilih Tamu</option>
-                {guests.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label-field">Kamar</label>
-              <select
-                value={formData.roomId}
-                onChange={(e) => setFormData({ ...formData, roomId: e.target.value })}
-                className="input-field"
-                required
-              >
-                <option value="">Pilih Kamar</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    Kamar {r.roomNumber} - {r.typeName} ({formatCurrency(r.price)})
-                  </option>
+      {filtered.length === 0 ? (
+        <div className="bg-white p-12 rounded-xl text-center">
+          <p className="text-gray-500">Tidak ada data booking</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    No. Booking
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Tamu
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Kamar
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Check-in
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Check-out
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Total
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filtered.map((booking) => (
+                  <tr key={booking.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      {booking.bookingNumber}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {booking.guest?.firstName} {booking.guest?.lastName}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      Kamar {booking.room?.roomNumber}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {new Date(booking.checkIn).toLocaleDateString("id-ID")}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {new Date(booking.checkOut).toLocaleDateString("id-ID")}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      Rp {booking.totalPrice.toLocaleString("id-ID")}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(booking.status)}`}
+                      >
+                        {booking.status}
+                      </span>
+                    </td>
+                  </tr>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="label-field">Check-in</label>
-              <input type="date" value={formData.checkIn}
-                onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
-                className="input-field" required />
-            </div>
-            <div>
-              <label className="label-field">Check-out</label>
-              <input type="date" value={formData.checkOut}
-                onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
-                className="input-field" required />
-            </div>
-            <div>
-              <label className="label-field">Dewasa</label>
-              <input type="number" min={1} value={formData.adults}
-                onChange={(e) => setFormData({ ...formData, adults: +e.target.value })}
-                className="input-field" required />
-            </div>
-            <div>
-              <label className="label-field">Anak-anak</label>
-              <input type="number" min={0} value={formData.children}
-                onChange={(e) => setFormData({ ...formData, children: +e.target.value })}
-                className="input-field" />
-            </div>
+              </tbody>
+            </table>
           </div>
-          <div>
-            <label className="label-field">Permintaan Khusus</label>
-            <textarea value={formData.specialRequest}
-              onChange={(e) => setFormData({ ...formData, specialRequest: e.target.value })}
-              className="input-field" rows={3} placeholder="Contoh: Extra bed, kamar lantai tinggi..." />
-          </div>
-          <div className="flex gap-3 justify-end pt-4 border-t">
-            <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Batal</button>
-            <button type="submit" className="btn-primary">Simpan Booking</button>
-          </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }

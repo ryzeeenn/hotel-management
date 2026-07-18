@@ -1,186 +1,150 @@
-﻿import { prisma } from "@/lib/prisma";
-import { StatCard } from "@/components/StatCard";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { Badge } from "@/components/Badge";
-import {
-  HiOutlineCalendar,
-  HiOutlineUserGroup,
-  HiOutlineBuildingOffice2,
-  HiOutlineCurrencyDollar,
-  HiOutlineShoppingBag,
-  HiOutlineClock,
-} from "react-icons/hi2";
-import { redirect } from "next/navigation"; // Optional: redirect to login if needed
+﻿"use client";
 
-export const dynamic = "force-dynamic";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
-export default async function DashboardPage() {
-  const [
-    totalBookings,
-    totalGuests,
-    totalRooms,
-    availableRooms,
-    occupiedRooms,
-    revenueData,
-    recentBookings,
-  ] = await Promise.all([
-    prisma.booking.count(),
-    prisma.guest.count(),
-    prisma.room.count(),
-    prisma.room.count({ where: { status: "AVAILABLE" } }),
-    prisma.room.count({ where: { status: "OCCUPIED" } }),
-    prisma.payment.aggregate({
-      _sum: { amount: true },
-      where: { paymentStatus: "SUCCESS" },
-    }),
-    prisma.booking.findMany({
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { guest: true, room: true },
-    }),
-  ]);
+export default function DashboardPage() {
+  const router = useRouter();
+  const [stats, setStats] = useState({
+    totalBookings: 0,
+    totalGuests: 0,
+    totalRooms: 0,
+    totalRevenue: 0,
+  });
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const totalRevenue = revenueData._sum.amount || 0;
-  const occupancyRate =
-    totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  async function fetchDashboardData() {
+    try {
+      const [bookingsRes, guestsRes, roomsRes, paymentsRes] = await Promise.all(
+        [
+          fetch("/api/bookings"),
+          fetch("/api/guests"),
+          fetch("/api/rooms"),
+          fetch("/api/payments"),
+        ],
+      );
+
+      const bookings = await bookingsRes.json();
+      const guests = await guestsRes.json();
+      const rooms = await roomsRes.json();
+      const payments = await paymentsRes.json();
+
+      const totalRevenue = Array.isArray(payments)
+        ? payments
+            .filter((p: any) => p.paymentStatus === "SUCCESS")
+            .reduce((sum: number, p: any) => sum + p.amount, 0)
+        : 0;
+
+      setStats({
+        totalBookings: Array.isArray(bookings) ? bookings.length : 0,
+        totalGuests: Array.isArray(guests) ? guests.length : 0,
+        totalRooms: Array.isArray(rooms) ? rooms.length : 0,
+        totalRevenue,
+      });
+
+      setRecentBookings(Array.isArray(bookings) ? bookings.slice(0, 5) : []);
+    } catch (error) {
+      console.error("Dashboard error:", error);
+      setError(
+        "Gagal memuat data dashboard. Pastikan database sudah terhubung.",
+      );
+      toast.error("Gagal memuat data dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h2 className="text-red-800 font-semibold mb-2">⚠️ {error}</h2>
+          <p className="text-red-600 text-sm">
+            Silakan periksa koneksi database dan pastikan server database sedang
+            berjalan.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      <div>
+    <div className="p-6">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">
-          Ringkasan hotel hari ini — {formatDate(new Date())}
-        </p>
+        <p className="text-gray-500 mt-1">Ringkasan hotel hari ini</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Booking"
-          value={totalBookings}
-          icon={<HiOutlineCalendar className="w-6 h-6" />}
-          color="blue"
-          trend={{ value: 12, label: "dari bulan lalu" }}
-        />
-        <StatCard
-          title="Total Tamu"
-          value={totalGuests}
-          icon={<HiOutlineUserGroup className="w-6 h-6" />}
-          color="green"
-          trend={{ value: 8, label: "dari bulan lalu" }}
-        />
-        <StatCard
-          title="Kamar Tersedia"
-          value={`${availableRooms}/${totalRooms}`}
-          icon={<HiOutlineBuildingOffice2 className="w-6 h-6" />}
-          color="orange"
-        />
-        <StatCard
-          title="Total Pendapatan"
-          value={formatCurrency(totalRevenue)}
-          icon={<HiOutlineCurrencyDollar className="w-6 h-6" />}
-          color="gold"
-          trend={{ value: 15, label: "dari bulan lalu" }}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="card">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
-            Tingkat Hunian
-          </h3>
-          <div className="flex items-center justify-center py-6">
-            <div className="relative w-40 h-40">
-              <svg
-                className="w-full h-full transform -rotate-90"
-                viewBox="0 0 100 100"
-              >
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  stroke="#e5e7eb"
-                  strokeWidth="12"
-                  fill="none"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  stroke="url(#gradient)"
-                  strokeWidth="12"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeDasharray={`${occupancyRate * 2.51} 251`}
-                />
-                <defs>
-                  <linearGradient
-                    id="gradient"
-                    x1="0%"
-                    y1="0%"
-                    x2="100%"
-                    y2="0%"
-                  >
-                    <stop offset="0%" stopColor="#0c93e7" />
-                    <stop offset="100%" stopColor="#0074c5" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-gray-900">
-                  {occupancyRate}%
-                </span>
-                <span className="text-xs text-gray-500">terisi</span>
-              </div>
-            </div>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-xl shadow-sm border">
+          <p className="text-sm text-gray-500">Total Booking</p>
+          <p className="text-3xl font-bold text-blue-600 mt-2">
+            {stats.totalBookings}
+          </p>
         </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border">
+          <p className="text-sm text-gray-500">Total Tamu</p>
+          <p className="text-3xl font-bold text-green-600 mt-2">
+            {stats.totalGuests}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border">
+          <p className="text-sm text-gray-500">Total Kamar</p>
+          <p className="text-3xl font-bold text-purple-600 mt-2">
+            {stats.totalRooms}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border">
+          <p className="text-sm text-gray-500">Total Pendapatan</p>
+          <p className="text-2xl font-bold text-yellow-600 mt-2">
+            Rp {stats.totalRevenue.toLocaleString("id-ID")}
+          </p>
+        </div>
+      </div>
 
-        <div className="lg:col-span-2 card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">Booking Terbaru</h3>
-            <a
-              href="/bookings"
-              className="text-sm text-hotel-600 hover:text-hotel-700 font-medium"
-            >
-              Lihat Semua →
-            </a>
-          </div>
+      <div className="bg-white rounded-xl shadow-sm border p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          Booking Terbaru
+        </h2>
+        {recentBookings.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">Belum ada booking</p>
+        ) : (
           <div className="space-y-3">
-            {recentBookings.map((booking) => (
+            {recentBookings.map((booking: any) => (
               <div
                 key={booking.id}
-                className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
               >
-                <div className="w-10 h-10 bg-hotel-100 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-bold text-hotel-700">
-                    {booking.guest.firstName[0]}
-                    {booking.guest.lastName[0]}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
-                    {booking.guest.firstName} {booking.guest.lastName}
+                <div>
+                  <p className="font-semibold text-gray-900">
+                    {booking.bookingNumber}
                   </p>
-                  <p className="text-xs text-gray-500">
-                    Kamar {booking.room.roomNumber} •{" "}
-                    {formatDate(booking.checkIn)}
+                  <p className="text-sm text-gray-500">
+                    {booking.guest?.firstName} {booking.guest?.lastName}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-gray-900">
-                    {formatCurrency(booking.totalPrice)}
-                  </p>
-                  <Badge status={booking.status} />
-                </div>
+                <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                  {booking.status}
+                </span>
               </div>
             ))}
-            {recentBookings.length === 0 && (
-              <p className="text-center text-gray-500 py-8">
-                Belum ada booking
-              </p>
-            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
