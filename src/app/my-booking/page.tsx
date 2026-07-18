@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Badge } from "@/components/Badge";
@@ -18,7 +18,7 @@ declare global {
   }
 }
 
-export default function MyBookingPage() {
+function MyBookingContent() {
   const searchParams = useSearchParams();
   const bookingNumber = searchParams.get("number");
 
@@ -39,7 +39,6 @@ export default function MyBookingPage() {
       const data = await res.json();
       setBookings(data);
 
-      // Fetch payments untuk booking ini
       const paymentRes = await fetch("/api/payments");
       const allPayments = await paymentRes.json();
       const bookingPayments = allPayments.filter((p: any) =>
@@ -111,7 +110,6 @@ export default function MyBookingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-hotel-50 to-hotel-100 py-12 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-12 h-12 bg-gradient-to-br from-gold-400 to-gold-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -141,7 +139,6 @@ export default function MyBookingPage() {
           </div>
         </div>
 
-        {/* Search */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-8">
           <form onSubmit={handleSearch} className="flex gap-3">
             <div className="flex-1 relative">
@@ -160,7 +157,6 @@ export default function MyBookingPage() {
           </form>
         </div>
 
-        {/* Bookings */}
         {bookings.length > 0 && (
           <div className="space-y-6">
             {bookings.map((booking) => {
@@ -250,7 +246,6 @@ export default function MyBookingPage() {
                       </div>
                     </div>
 
-                    {/* Payment Info */}
                     {payment && (
                       <div className="border-t border-gray-200 pt-6">
                         <h3 className="font-semibold text-gray-900 mb-4">
@@ -313,5 +308,17 @@ export default function MyBookingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MyBookingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-hotel-600" />
+      </div>
+    }>
+      <MyBookingContent />
+    </Suspense>
   );
 }

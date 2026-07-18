@@ -1,27 +1,14 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
-import { PWARegistration } from "@/components/PWARegistration";
 import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Grand Hotel - Management System",
+  title: "Grand Hotel — Management System",
   description: "Sistem informasi manajemen hotel terpadu",
-  applicationName: "Grand Hotel",
-  manifest: "/manifest.webmanifest",
-  icons: {
-    icon: "/icons/grand-hotel-icon.svg",
-    apple: "/icons/grand-hotel-icon.svg",
-  },
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  themeColor: "#1e3a5f",
 };
 
 export default function RootLayout({
@@ -39,7 +26,6 @@ export default function RootLayout({
           </main>
         </div>
         <Toaster position="top-right" richColors />
-        <PWARegistration />
       </body>
     </html>
   );

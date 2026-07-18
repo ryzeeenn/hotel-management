@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   HiOutlineCheckCircle,
@@ -10,7 +10,7 @@ import {
 
 type VerificationStatus = "loading" | "pending" | "success" | "error";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token")?.trim() || "";
@@ -169,5 +169,17 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-hotel-50 to-hotel-100 p-4">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-hotel-600" />
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

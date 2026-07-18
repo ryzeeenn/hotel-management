@@ -119,7 +119,7 @@ enum BookingStatus {
 model Order {
   id          String      @id @default(uuid())
   orderNumber String      @unique @map("order_number")
-  guestId     String      @map("guest_id")
+  guestId     String?     @map("guest_id")
   roomNumber  String?     @map("room_number")
   orderType   OrderType   @map("order_type")
   totalAmount Int         @map("total_amount")
@@ -127,7 +127,7 @@ model Order {
   createdAt   DateTime    @default(now()) @map("createdat")
   updatedAt   DateTime    @updatedAt @map("updatedat")
 
-  guest       Guest       @relation(fields: [guestId], references: [id])
+  guest       Guest?      @relation(fields: [guestId], references: [id])
   items       OrderItem[]
   payment     Payment?
 
