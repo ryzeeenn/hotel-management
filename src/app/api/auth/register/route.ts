@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, generateVerificationToken } from "@/lib/auth";
+import {
+  generateVerificationToken,
+  hashPassword,
+  hashVerificationToken,
+} from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/email";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password, firstName, lastName, phone } = body;
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "");
+    const firstName = String(body.firstName || "").trim();
+    const lastName = String(body.lastName || "").trim();
+    const phone = String(body.phone || "").trim();
 
     if (!email || !password || !firstName || !lastName) {
       return NextResponse.json(
@@ -15,11 +25,36 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!EMAIL_PATTERN.test(email)) {
+      return NextResponse.json(
+        { error: "Format email tidak valid" },
+        { status: 400 },
+      );
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: "Password minimal 6 karakter" },
+        { status: 400 },
+      );
+    }
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
+      if (!existingUser.isVerified) {
+        return NextResponse.json(
+          {
+            error: "Email sudah terdaftar tetapi belum diverifikasi",
+            email,
+            requiresVerification: true,
+          },
+          { status: 409 },
+        );
+      }
+
       return NextResponse.json(
         { error: "Email sudah terdaftar" },
-        { status: 400 },
+        { status: 409 },
       );
     }
 
@@ -34,7 +69,7 @@ export async function POST(request: Request) {
         firstName,
         lastName,
         phone: phone || null,
-        verificationToken,
+        verificationToken: hashVerificationToken(verificationToken),
         verificationTokenExpiry,
       },
     });
@@ -51,8 +86,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        message: "Registrasi berhasil! Silakan cek email untuk verifikasi.",
+        message: emailResult.success
+          ? "Registrasi berhasil. Silakan cek email untuk verifikasi."
+          : "Registrasi berhasil, tetapi email verifikasi belum terkirim. Silakan kirim ulang dari halaman verifikasi.",
         userId: user.id,
+        email,
+        verificationEmailSent: emailResult.success,
       },
       { status: 201 },
     );
